@@ -30,3 +30,14 @@
 *.exe
 *.out
 *.app
+
+/x64
+/Win32
+*.tlog
+*.db
+*.pdb
+/Portnamedetect/.vs
+/InjectionTestApp/x64
+/InjectionTestApp/Win32
+/Portnamedetect/x64
+/Portnamedetect/Win32
