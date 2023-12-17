@@ -141,4 +141,5 @@ public:
 	CColorStatic m_doorstatus;
 	CColorStatic m_tripstatus;
 	CButton m_btnenable;
+	afx_msg void OnClose();
 };

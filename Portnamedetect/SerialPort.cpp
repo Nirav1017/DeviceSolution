@@ -284,34 +284,43 @@ int SerailPort::WriteReadData()
 			DWORD bytesWritten, byteread;
 			::Sleep(100);
 			//bool set = WriteFile(m_comportHandle, &command, 1, &bytesWritten, NULL);
-
-			if (WriteFile(m_comportHandle, &command, 1, &bytesWritten, NULL))
+			if (m_comportHandle)
 			{
-				_snprintf_s(szOutputString, sizeof(szOutputString), sizeof(szOutputString),
-					"%s - Line# [%d] -Write command success [%d]", __FUNCTION__, __LINE__, bytesWritten);
-				LOG_DEBUG(szOutputString);
-				Bufferdata = (char*)calloc(READ_DATA_LEN, sizeof(char));
-				//returnValue = ReadComPort(m_comportHandle, (char*)Bufferdata, READ_DATA_LEN);			
-				if (ReadFile(m_comportHandle, Bufferdata, READ_DATA_LEN, &byteread, NULL))
-				{		
+				if (WriteFile(m_comportHandle, &command, 1, &bytesWritten, NULL))
+				{
 					_snprintf_s(szOutputString, sizeof(szOutputString), sizeof(szOutputString),
-						"%s - Line# [%d] -Read Data success [%d] - [%s]", __FUNCTION__, __LINE__, byteread, Bufferdata);
+						"%s - Line# [%d] -Write command success [%d]", __FUNCTION__, __LINE__, bytesWritten);
 					LOG_DEBUG(szOutputString);
-					(*m_pdatafeedbackCallback)(COMPORT_SUCCESS, Bufferdata, READ_DATA_LEN);
+					Bufferdata = (char*)calloc(READ_DATA_LEN, sizeof(char));
+					//returnValue = ReadComPort(m_comportHandle, (char*)Bufferdata, READ_DATA_LEN);			
+					if (ReadFile(m_comportHandle, Bufferdata, READ_DATA_LEN, &byteread, NULL))
+					{
+						_snprintf_s(szOutputString, sizeof(szOutputString), sizeof(szOutputString),
+							"%s - Line# [%d] -Read Data success [%d] - [%s]", __FUNCTION__, __LINE__, byteread, Bufferdata);
+						LOG_DEBUG(szOutputString);
+						(*m_pdatafeedbackCallback)(COMPORT_SUCCESS, Bufferdata, READ_DATA_LEN);
 
+					}
+					else
+					{
+						_snprintf_s(szOutputString, sizeof(szOutputString), sizeof(szOutputString),
+							"%s - Line# [%d] -Read Data fail [%d] - [%s]", __FUNCTION__, __LINE__, byteread, Bufferdata);
+						LOG_DEBUG(szOutputString);
+						(*m_pdatafeedbackCallback)(COMPORT_READ_FAILED, Bufferdata, READ_DATA_LEN);
+					}
 				}
 				else
 				{
 					_snprintf_s(szOutputString, sizeof(szOutputString), sizeof(szOutputString),
-						"%s - Line# [%d] -Read Data fail [%d] - [%s]", __FUNCTION__, __LINE__, byteread, Bufferdata);
+						"%s - Line# [%d] -Write command fail [%d]", __FUNCTION__, __LINE__, bytesWritten);
 					LOG_DEBUG(szOutputString);
-					(*m_pdatafeedbackCallback)(COMPORT_READ_FAILED, Bufferdata, READ_DATA_LEN);
+					returnValue = COMPORT_WRITE_FAILED;
 				}
 			}
 			else
 			{
 				_snprintf_s(szOutputString, sizeof(szOutputString), sizeof(szOutputString),
-					"%s - Line# [%d] -Write command fail [%d]", __FUNCTION__, __LINE__, bytesWritten);
+					"%s - Line# [%d] -Device Handle not Found ", __FUNCTION__, __LINE__);
 				LOG_DEBUG(szOutputString);
 				returnValue = COMPORT_WRITE_FAILED;
 			}

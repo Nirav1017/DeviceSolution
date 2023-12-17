@@ -41,3 +41,5 @@
 /InjectionTestApp/Win32
 /Portnamedetect/x64
 /Portnamedetect/Win32
+*.log
+*.vs

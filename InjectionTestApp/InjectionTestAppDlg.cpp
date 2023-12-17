@@ -18,8 +18,8 @@
 std::ofstream m_CSVFile;
 static int EnabledisableCnt = 0;
 CInjectionTestAppDlg* myDilogObj;
-static char VID_STR[] = "2047";//"0483";				///< MFS110 OEM Vendor ID.
-static char PID_STR[] = "03F0";//"5740";
+static char VID_STR[] = "2047";//;	"0483";//			///< MFS110 OEM Vendor ID.
+static char PID_STR[] ="03F0";//; "5740";//
 float out_value;
 CString newValueStr, formatString;
 bool isPhasefalut = false;
@@ -35,6 +35,7 @@ static int htcnt = 0;
 void  CommEventCallback(int nErrorCode, char* buffer, unsigned int buff_size);
 DWORD WINAPI WriteDataThread(LPVOID lpParam);
 
+#pragma region Constructor Destructure Event
 class CAboutDlg : public CDialogEx
 {
 public:
@@ -80,7 +81,9 @@ CInjectionTestAppDlg::CInjectionTestAppDlg(CWnd* pParent /*=nullptr*/)
 	myDilogObj = this;
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
+#pragma endregion
 
+#pragma region Form and Color Event
 void CInjectionTestAppDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
@@ -186,6 +189,7 @@ BEGIN_MESSAGE_MAP(CInjectionTestAppDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_CREATE_LOG_FILE, &CInjectionTestAppDlg::OnBnClickedButtonCreateLogFile)
 	ON_MESSAGE(WM_IMAGE_PREVIEW, &CInjectionTestAppDlg::OnMessageImagePreview)
 	ON_WM_ERASEBKGND()
+	ON_WM_CLOSE()
 END_MESSAGE_MAP()
 
 
@@ -251,6 +255,17 @@ void CInjectionTestAppDlg::OnSysCommand(UINT nID, LPARAM lParam)
 //  to draw the icon.  For MFC applications using the document/view model,
 //  this is automatically done for you by the framework.
 
+BOOL CInjectionTestAppDlg::OnEraseBkgnd(CDC* pDC)
+{
+	CRect rect;
+	GetClientRect(&rect);
+
+	CBrush brush(RGB(241, 230, 184)); // Create a red brush
+	pDC->FillRect(&rect, &brush); // Fill the background with the brush
+
+	return TRUE; // Indicate that you have handled erasing the background
+}
+
 void CInjectionTestAppDlg::OnPaint()
 {
 	if (IsIconic())
@@ -282,8 +297,9 @@ HCURSOR CInjectionTestAppDlg::OnQueryDragIcon()
 {
 	return static_cast<HCURSOR>(m_hIcon);
 }
+#pragma endregion
 
-
+#pragma region Functions
 void CInjectionTestAppDlg::SetReadData(char* input_data, comm_tx_db_t* pcomm_tx_db)
 {
 #define SLAVE_ADDRESS            (0x40)
@@ -376,6 +392,15 @@ void CInjectionTestAppDlg::SetColourFormat(CColorStatic& t_obj, COLORREF t_back_
 	//t_obj.SetFont(&t_Font);
 }
 
+void CInjectionTestAppDlg::OnClose()
+{
+	// TODO: Add your message handler code here and/or call default
+	int returnValue = COMPORT_SUCCESS;
+	returnValue = ComportDeviceDisConnect(hHandle);
+
+	CDialogEx::OnClose();
+}
+
 void CInjectionTestAppDlg::SetWindowBackGroundColor()
 {
 	for (int i = 0; i < 44; i++)
@@ -404,6 +429,9 @@ void CInjectionTestAppDlg::SetWindowBackGroundColor()
 	SetColourFormat(m_HtflagP, RGB(103, 103, 103), RGB(255, 255, 255));
 
 }
+#pragma endregion
+
+#pragma region Button Click Events
 
 void CInjectionTestAppDlg::OnBnClickedButtonDeviceConnect()
 {
@@ -496,6 +524,10 @@ void CInjectionTestAppDlg::OnBnClickedButtonCreateLogFile()
 		<< "," << "Earth Fault" << "," << "HT_FLAG" << std::endl;
 	
 }
+
+#pragma endregion
+
+#pragma region Callback and Events
 
 void CommEventCallback(int nErrorCode, char* buffer, unsigned int buff_size)
 {
@@ -655,7 +687,8 @@ LRESULT CInjectionTestAppDlg::OnMessageImagePreview(WPARAM wParam, LPARAM lParam
 					else if (comm_tx_db.status_db.ht_flag == 17)
 					{
 						isHTflag = true;
-						if (htcnt % 2 == 0)
+						SetColourFormat(m_HtflagP, RGB(255, 115, 0), RGB(255, 255, 255));
+						/*if (htcnt % 2 == 0)
 						{
 							SetColourFormat(m_HtflagP, RGB(255, 255, 255), RGB(255, 255, 255));
 						}
@@ -663,7 +696,7 @@ LRESULT CInjectionTestAppDlg::OnMessageImagePreview(WPARAM wParam, LPARAM lParam
 						{
 							SetColourFormat(m_HtflagP, RGB(255, 115, 0), RGB(255, 255, 255));
 						}
-						htcnt++;
+						htcnt++;*/
 					}
 
 					if (comm_tx_db.status_db.gen_faults & 0x01) {
@@ -1163,17 +1196,6 @@ LRESULT CInjectionTestAppDlg::OnMessageImagePreview(WPARAM wParam, LPARAM lParam
 	return *reinterpret_cast<LRESULT const*>(&returnValue);
 }
 
-BOOL CInjectionTestAppDlg::OnEraseBkgnd(CDC* pDC)
-{
-	CRect rect;
-	GetClientRect(&rect);
-
-	CBrush brush(RGB(241, 230, 184)); // Create a red brush
-	pDC->FillRect(&rect, &brush); // Fill the background with the brush
-
-	return TRUE; // Indicate that you have handled erasing the background
-}
-
 DWORD WINAPI WriteDataThread(LPVOID lpParam)
 {
 	CString CSVoltage0,CSVoltage1,CSIPFreq,CSOPFreq,CSACCurrent0,CSACCurrent1,CSACCurrent2,CSDCVoltage0
@@ -1268,3 +1290,4 @@ DWORD WINAPI WriteDataThread(LPVOID lpParam)
 	}
 	return 0;
 }
+#pragma endregion
