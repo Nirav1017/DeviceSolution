@@ -19,7 +19,7 @@ std::ofstream m_CSVFile;
 static int EnabledisableCnt = 0;
 CInjectionTestAppDlg* myDilogObj;
 static char VID_STR[] = "2047";//;	"0483";//			///< MFS110 OEM Vendor ID.
-static char PID_STR[] ="03F0";//; "5740";//
+static char PID_STR[] = "03F0";//; "5740";//
 float out_value;
 CString newValueStr, formatString;
 bool isPhasefalut = false;
@@ -32,6 +32,8 @@ bool isEarthFault = false;
 bool isHTflag = false;
 bool IsWriteFile = FALSE;
 static int htcnt = 0;
+static int logcnt = 0;
+CString Appdatalogfile;
 void  CommEventCallback(int nErrorCode, char* buffer, unsigned int buff_size);
 DWORD WINAPI WriteDataThread(LPVOID lpParam);
 
@@ -224,10 +226,28 @@ BOOL CInjectionTestAppDlg::OnInitDialog()
 	SetIcon(m_hIcon, TRUE);			// Set big icon
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 
-	PortEnableLogs(LEVEL_LOG_ON, "");
+	PortEnableLogs(LEVEL_LOG_OFF, "");
 	// TODO: Add extra initialization here
 	int ret = comportInit();
 	SetWindowBackGroundColor();
+	SetDefaultValue();
+
+	std::string defaultFilename = "Log_" + generateTimestamp() + ".csv";
+
+	CString cstr(defaultFilename.c_str());
+	UpdateData(TRUE);
+	m_filepath.SetString(cstr);
+	UpdateData(FALSE);
+	Appdatalogfile = cstr;
+	int m_EntryCount = 0;
+	m_CSVFile.open(cstr, std::ios::out | std::ios::app);
+
+	m_CSVFile << "MODEL NAME " << "," << "Date " << "," << "Time" << "," << "Voltage 0" << "," << "Voltage 1" << ", " << "I / p Frequency"
+		<< "," << "O/P Frequency" << "," << "Current 0" << "," << "Current 1" << ","
+		<< "Current 2" << "," << "DC Voltage 0" << "," << "DC Voltage 1" << "," << "Phase Angle" << "," << "Power Factor" << "," << "KiloWatt" << "," << "Timer" << "," << "Trip Data" <<
+		"," << "Phase_fault" << "," << "OV Fault" << "," << "OC Fault" << "," << "TRIP Fault" << "," << "CageDoor Fault"
+		<< "," << "Earth Fault" << "," << "HT_FLAG" << std::endl;
+
 	if (ret != COMPORT_SUCCESS)
 	{
 		AfxMessageBox(L"Device was not init");
@@ -419,7 +439,7 @@ void CInjectionTestAppDlg::SetWindowBackGroundColor()
 	{
 		m_SaticText[i].SetFont(&font);
 	}
-	SetColourFormat(m_logstatus, RGB(255, 0, 0), RGB(255, 255, 255));
+	SetColourFormat(m_logstatus, RGB(103, 103, 103), RGB(255, 255, 255));
 	SetColourFormat(m_Phase, RGB(0, 255, 0), RGB(255, 255, 255));
 	SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
 	SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
@@ -429,6 +449,44 @@ void CInjectionTestAppDlg::SetWindowBackGroundColor()
 	SetColourFormat(m_HtflagP, RGB(103, 103, 103), RGB(255, 255, 255));
 
 }
+
+void CInjectionTestAppDlg::SetDefaultValue()
+{
+	UpdateData(TRUE);
+	SetColourFormat(m_logstatus, RGB(103, 103, 103), RGB(255, 255, 255));
+	SetColourFormat(m_Phase, RGB(0, 255, 0), RGB(255, 255, 255));
+	SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
+	SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
+	SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
+	SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
+	SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
+	SetColourFormat(m_HtflagP, RGB(103, 103, 103), RGB(255, 255, 255));
+	SetDlgItemText(IDC_STATIC_AC_VOLTAGE_VALUE_0, L"0");
+	SetDlgItemText(IDC_STATIC_AC_VOLTAGE_VALUE_1, L"0");
+	SetDlgItemText(IDC_STATIC_IP_FREQ_VALUE, L"0");
+	SetDlgItemText(IDC_STATIC_OP_FREQ_VALUE, L"0");
+	SetDlgItemText(IDC_STATIC_AC_CURRENT_VALUE_0, L"0");
+	SetDlgItemText(IDC_STATIC_AC_CURRENT_VALUE_1, L"0");
+	SetDlgItemText(IDC_STATIC_AC_CURRENT_VALUE_2, L"0");
+	SetDlgItemText(IDC_STATIC_DC_VOLTAGE_VALUE_0, L"0");
+	SetDlgItemText(IDC_STATIC_DC_VOLTAGE_VALUE_1, L"0");
+	SetDlgItemText(IDC_STATIC_PHASE_ANGLE_VALUE, L"0");
+	SetDlgItemText(IDC_STATIC_POWER_FACTOR_VALUE, L"0");
+	SetDlgItemText(IDC_STATIC_KILOWATT_VALUE, L"0");
+	SetDlgItemText(IDC_STATIC_TRIP_VALUE, L"0");
+	SetDlgItemText(IDC_STATIC_TIMER_VALUE, L"0");
+	UpdateData(FALSE);
+}
+
+std::string CInjectionTestAppDlg::generateTimestamp() {
+	std::time_t currentTime = std::time(nullptr);
+	std::tm* timeInfo = std::localtime(&currentTime);
+
+	char buffer[80];
+	std::strftime(buffer, sizeof(buffer), "%Y%m%d_%H%M%S", timeInfo);
+
+	return std::string(buffer);
+}
 #pragma endregion
 
 #pragma region Button Click Events
@@ -436,9 +494,11 @@ void CInjectionTestAppDlg::SetWindowBackGroundColor()
 void CInjectionTestAppDlg::OnBnClickedButtonDeviceConnect()
 {
 	int returnValue = COMPORT_SUCCESS;
+	htcnt = 0;
 	returnValue = IsDeviceConnected(VID_STR, PID_STR, hHandle);
 	if (returnValue == COMPORT_SUCCESS)
 	{
+		htcnt = 0;
 		AfxMessageBox(L"Device connected successfully");
 		m_cbCommEventCallback = (DATA_FEEDBACK_CALLBACK)&CommEventCallback;
 		CommRegisterCallback(&m_cbCommEventCallback);
@@ -457,17 +517,12 @@ void CInjectionTestAppDlg::OnBnClickedButtonDisconnectDevice()
 
 	int returnValue = COMPORT_SUCCESS;
 	returnValue = ComportDeviceDisConnect(hHandle);
+	htcnt = 0;
 	if (returnValue == COMPORT_SUCCESS)
 	{
 		AfxMessageBox(L"The device has been disconnected successfully.");
-		SetColourFormat(m_logstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-		SetColourFormat(m_Phase, RGB(0, 255, 0), RGB(255, 255, 255));
-		SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-		SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-		SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-		SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-		SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-		SetColourFormat(m_HtflagP, RGB(103, 103, 103), RGB(255, 255, 255));
+		SetDefaultValue();
+
 	}
 	else
 	{
@@ -489,9 +544,11 @@ void CInjectionTestAppDlg::OnBnClickedButtonLogEnable()
 	}
 	else
 	{
+		logcnt = 0;
 		m_btnenable.SetWindowTextW(L"Log Enable");
 		IsWriteFile = FALSE;
-		SetColourFormat(m_logstatus, RGB(255, 0, 0), RGB(255, 255, 255));
+		SetColourFormat(m_logstatus, RGB(103, 103, 103), RGB(255, 255, 255));
+		//SetColourFormat(m_logstatus, RGB(255, 0, 0), RGB(255, 255, 255));
 		int m_EntryCount = 0;
 	}
 	UpdateData(FALSE);
@@ -687,8 +744,8 @@ LRESULT CInjectionTestAppDlg::OnMessageImagePreview(WPARAM wParam, LPARAM lParam
 					else if (comm_tx_db.status_db.ht_flag == 17)
 					{
 						isHTflag = true;
-						SetColourFormat(m_HtflagP, RGB(255, 115, 0), RGB(255, 255, 255));
-						/*if (htcnt % 2 == 0)
+						//SetColourFormat(m_HtflagP, RGB(255, 115, 0), RGB(255, 255, 255));
+						if (htcnt % 2 == 0)
 						{
 							SetColourFormat(m_HtflagP, RGB(255, 255, 255), RGB(255, 255, 255));
 						}
@@ -696,7 +753,7 @@ LRESULT CInjectionTestAppDlg::OnMessageImagePreview(WPARAM wParam, LPARAM lParam
 						{
 							SetColourFormat(m_HtflagP, RGB(255, 115, 0), RGB(255, 255, 255));
 						}
-						htcnt++;*/
+						htcnt++;
 					}
 
 					if (comm_tx_db.status_db.gen_faults & 0x01) {
@@ -746,429 +803,6 @@ LRESULT CInjectionTestAppDlg::OnMessageImagePreview(WPARAM wParam, LPARAM lParam
 						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
 					}
 
-				/*	if (comm_tx_db.status_db.gen_faults == 1)
-					{
-						isOvFault = true;
-						isOCFault = false;
-						istripFault = false;
-						isCageDoorFault = false;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 2)
-					{
-						isOCFault = true;
-						isOvFault = false;
-						istripFault = false;
-						isCageDoorFault = false;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 3)
-					{
-						isOvFault = true;
-						isOCFault = true;
-						istripFault = false;
-						isCageDoorFault = false;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-
-					}
-					else if (comm_tx_db.status_db.gen_faults == 4)
-					{
-						isOvFault = false;
-						isOCFault = false;
-						istripFault = true;
-						isCageDoorFault = false;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-
-					}
-					else if (comm_tx_db.status_db.gen_faults == 5)
-					{
-						istripFault = true;
-						isOvFault = true;
-						isOCFault = false;
-						isCageDoorFault = false;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-
-					}
-					else if (comm_tx_db.status_db.gen_faults == 6)
-					{
-						istripFault = true;
-						isOCFault = true;
-						isOvFault = false;
-						isCageDoorFault = false;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-
-					}
-					else if (comm_tx_db.status_db.gen_faults == 7)
-					{
-						istripFault = true;
-						isOCFault = true;
-						isOvFault = true;
-						isCageDoorFault = false;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 8)
-					{
-						isCageDoorFault = true;
-						isOvFault = false;
-						isOCFault = false;
-						istripFault = false;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 9)
-					{
-						isCageDoorFault = true;
-						isOvFault = true;
-						isOCFault = false;
-						istripFault = false;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-
-					}
-					else if (comm_tx_db.status_db.gen_faults == 10)
-					{
-						isCageDoorFault = true;
-						isOCFault = true;
-						isOvFault = false;
-						istripFault = false;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 11)
-					{
-						isCageDoorFault = true;
-						isOCFault = true;
-						isOvFault = true;
-						istripFault = false;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 12)
-					{
-						isCageDoorFault = true;
-						istripFault = true;
-						isOvFault = false;
-						isOCFault = false;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-
-					}
-					else if (comm_tx_db.status_db.gen_faults == 13)
-					{
-						isCageDoorFault = true;
-						istripFault = true;
-						isOvFault = true;
-						isOCFault = false;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 14)
-					{
-						isCageDoorFault = true;
-						istripFault = true;
-						isOvFault = false;
-						isOCFault = true;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(0, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 15)
-					{
-						isCageDoorFault = true;
-						istripFault = true;
-						isOvFault = true;
-						isOCFault = true;
-						isEarthFault = false;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 16)
-					{
-						isEarthFault = true;
-						isCageDoorFault = false;
-						istripFault = false;
-						isOvFault = false;
-						isOCFault = false;
-						SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 17)
-					{
-						isEarthFault = true;
-						isCageDoorFault = false;
-						istripFault = false;
-						isOvFault = true;
-						isOCFault = false;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 18)
-					{
-						isEarthFault = true;
-						isCageDoorFault = false;
-						istripFault = false;
-						isOvFault = false;
-						isOCFault = true;
-						SetColourFormat(m_ovstatus, RGB(0, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 19)
-					{
-						isEarthFault = true;
-						isCageDoorFault = false;
-						istripFault = false;
-						isOvFault = true;
-						isOCFault = true;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 20)
-					{
-						isEarthFault = true;
-						isCageDoorFault = false;
-						istripFault = true;
-						isOvFault = false;
-						isOCFault = false;
-						SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 21)
-					{
-						isEarthFault = true;
-						isCageDoorFault = false;
-						istripFault = true;
-						isOvFault = true;
-						isOCFault = false;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 22)
-					{
-						isEarthFault = true;
-						isCageDoorFault = false;
-						istripFault = true;
-						isOvFault = false;
-						isOCFault = true;
-						SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 23)
-					{
-						isEarthFault = true;
-						isCageDoorFault = false;
-						istripFault = true;
-						isOvFault = true;
-						isOCFault = true;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 24)
-					{
-						isEarthFault = true;
-						isCageDoorFault = true;
-						istripFault = false;
-						isOvFault = false;
-						isOCFault = false;
-						SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 25)
-					{
-						isEarthFault = true;
-						isCageDoorFault = true;
-						istripFault = false;
-						isOvFault = true;
-						isOCFault = false;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 26)
-					{
-						isEarthFault = true;
-						isCageDoorFault = true;
-						istripFault = false;
-						isOvFault = false;
-						isOCFault = true;
-						SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 27)
-					{
-						isEarthFault = true;
-						isCageDoorFault = true;
-						istripFault = false;
-						isOvFault = true;
-						isOCFault = true;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 28)
-					{
-						isEarthFault = true;
-						isCageDoorFault = true;
-						istripFault = true;
-						isOvFault = false;
-						isOCFault = false;
-						SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 29)
-					{
-						isEarthFault = true;
-						isCageDoorFault = true;
-						istripFault = true;
-						isOvFault = true;
-						isOCFault = false;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 30)
-					{
-						isEarthFault = true;
-						isCageDoorFault = true;
-						istripFault = true;
-						isOvFault = false;
-						isOCFault = true;
-						SetColourFormat(m_ovstatus, RGB(0, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else if (comm_tx_db.status_db.gen_faults == 31)
-					{
-						isEarthFault = true;
-						isCageDoorFault = true;
-						istripFault = true;
-						isOvFault = true;
-						isOCFault = true;
-						SetColourFormat(m_ovstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(255, 0, 0), RGB(255, 255, 255));
-					}
-					else
-					{
-						isEarthFault = false;
-						isCageDoorFault = false;
-						istripFault = false;
-						isOvFault = false;
-						isOCFault = false;
-						SetColourFormat(m_ovstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_olstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_tripstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_doorstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						SetColourFormat(m_earthstatus, RGB(0, 255, 0), RGB(255, 255, 255));
-						}*/
-
 					if (comm_tx_db.status_db.phase_fault == 0)
 					{
 						SetColourFormat(m_Phase, RGB(0, 255, 0), RGB(255, 255, 255));
@@ -1200,93 +834,158 @@ DWORD WINAPI WriteDataThread(LPVOID lpParam)
 {
 	CString CSVoltage0,CSVoltage1,CSIPFreq,CSOPFreq,CSACCurrent0,CSACCurrent1,CSACCurrent2,CSDCVoltage0
 	,CSDCVoltage1,CPhaseangle, CKilowatt, CPowerFactor, CSTimer,CSTrip,Cphase_fault,COvFault,COCFault, CTripFault, CCageDoorFault, CEarthFault, CHtFlag;
-	while (IsWriteFile)
+	int cretlog = 1;
+	if (isHTflag)
 	{
-		myDilogObj->m_SaticText[44].GetWindowTextW(CSVoltage0);
-		myDilogObj->m_SaticText[45].GetWindowTextW(CSVoltage1);
-		myDilogObj->m_SaticText[46].GetWindowTextW(CSIPFreq);
-		myDilogObj->m_SaticText[47].GetWindowTextW(CSOPFreq);
-		myDilogObj->m_SaticText[51].GetWindowTextW(CSACCurrent0);
-		myDilogObj->m_SaticText[52].GetWindowTextW(CSACCurrent1);
-		myDilogObj->m_SaticText[53].GetWindowTextW(CSACCurrent2);
-		myDilogObj->m_SaticText[48].GetWindowTextW(CSDCVoltage0);
-		myDilogObj->m_SaticText[49].GetWindowTextW(CSDCVoltage1);
-		myDilogObj->m_SaticText[54].GetWindowTextW(CPhaseangle);
-		myDilogObj->m_SaticText[55].GetWindowTextW(CPowerFactor);
-		myDilogObj->m_SaticText[57].GetWindowTextW(CKilowatt);
-		myDilogObj->m_SaticText[50].GetWindowTextW(CSTimer);
-		myDilogObj->m_SaticText[56].GetWindowTextW(CSTrip);
-
-		const char* charStr = CT2A(CSTimer);
-		std::string stdStr(charStr);
-
-		if (isPhasefalut)
+		if (cretlog)
 		{
-			Cphase_fault = "1";
+			m_CSVFile.open(Appdatalogfile, std::ios::out | std::ios::app);
+			cretlog = 0;
 		}
-		else
+		
+		if (myDilogObj->comm_tx_db.model_no == 1 || myDilogObj->comm_tx_db.model_no == 2 || myDilogObj->comm_tx_db.model_no == 3 || myDilogObj->comm_tx_db.model_no == 4)
 		{
-			Cphase_fault = "0";
+			m_CSVFile << "ACHVTS5-All" << std::endl;
 		}
-		if (isOvFault)
+		if (myDilogObj->comm_tx_db.model_no == 5 || myDilogObj->comm_tx_db.model_no == 6 || myDilogObj->comm_tx_db.model_no == 7 || myDilogObj->comm_tx_db.model_no == 8
+			|| myDilogObj->comm_tx_db.model_no == 9)
 		{
-			COvFault = "1";
+			m_CSVFile << "ACHVTS4-both" << std::endl;
 		}
-		else
+		if (myDilogObj->comm_tx_db.model_no == 10 || myDilogObj->comm_tx_db.model_no == 11 || myDilogObj->comm_tx_db.model_no == 12 || myDilogObj->comm_tx_db.model_no == 13
+			|| myDilogObj->comm_tx_db.model_no == 14 || myDilogObj->comm_tx_db.model_no == 15 || myDilogObj->comm_tx_db.model_no == 16)
 		{
-			COvFault = "0";
+			m_CSVFile << "PCITS4B&C-All" << std::endl;
 		}
-		if (isOCFault)
+		if (myDilogObj->comm_tx_db.model_no == 17 || myDilogObj->comm_tx_db.model_no == 18)
 		{
-			COCFault = "1";
+			m_CSVFile << "PCITS4D-1P" << std::endl;
 		}
-		else
+		if (myDilogObj->comm_tx_db.model_no == 19 || myDilogObj->comm_tx_db.model_no == 20)
 		{
-			COCFault = "0";
+			m_CSVFile << "PCITS5-3P" << std::endl;
 		}
-		if (istripFault)
+		if (myDilogObj->comm_tx_db.model_no == 21)
 		{
-			CTripFault = "1";
+			m_CSVFile << "DCPHVTS4-1P" << std::endl;
 		}
-		else
+		if (myDilogObj->comm_tx_db.model_no == 22)
 		{
-			CTripFault = "0";
-		}
-		if (isCageDoorFault)
-		{
-			CCageDoorFault = "1";
-		}
-		else
-		{
-			CCageDoorFault = "0";
-		}
-		if (isEarthFault)
-		{
-			CEarthFault = "1";
-		}
-		else
-		{
-			CEarthFault = "0";
-		}
-		if (isHTflag)
-		{
-			CHtFlag = "1";
-		}
-		else
-		{
-			CHtFlag = "0";
+			m_CSVFile << "ACDCHVTS4-1P" << std::endl;
 		}
 
 
-		m_CSVFile << _tstof(CSVoltage0) << "," << _tstof(CSVoltage1) << "," << _tstof(CSIPFreq)
-			<< "," << _tstof(CSOPFreq) << "," << _tstof(CSACCurrent0) << "," << _tstof(CSACCurrent1) << ","
-			<< _tstof(CSACCurrent2) << "," << _tstof(CSDCVoltage0) << "," << _tstof(CSDCVoltage1) << "," << _tstof(CPhaseangle) << "," << _tstof(CPowerFactor) << "," << _tstof(CKilowatt)
-			<< "," << stdStr << "," << _tstof(CSTrip) << "," << _tstof(Cphase_fault) << "," << _tstof(COvFault) << "," << _tstof(COCFault) <<
-			"," << _tstof(CTripFault) << "," << _tstof(CCageDoorFault) << "," << _tstof(CEarthFault) << "," << _tstof(CHtFlag) << std::endl;
+		while (IsWriteFile)
+		{
+			if (logcnt % 2 == 0)
+			{
+				myDilogObj->SetColourFormat(myDilogObj->m_logstatus, RGB(0, 255, 0), RGB(255, 255, 255));
+			}
+			else
+			{
+				myDilogObj->SetColourFormat(myDilogObj->m_logstatus, RGB(103, 103, 103), RGB(255, 255, 255));
+			}
+			logcnt++;
+			myDilogObj->m_SaticText[44].GetWindowTextW(CSVoltage0);
+			myDilogObj->m_SaticText[45].GetWindowTextW(CSVoltage1);
+			myDilogObj->m_SaticText[46].GetWindowTextW(CSIPFreq);
+			myDilogObj->m_SaticText[47].GetWindowTextW(CSOPFreq);
+			myDilogObj->m_SaticText[51].GetWindowTextW(CSACCurrent0);
+			myDilogObj->m_SaticText[52].GetWindowTextW(CSACCurrent1);
+			myDilogObj->m_SaticText[53].GetWindowTextW(CSACCurrent2);
+			myDilogObj->m_SaticText[48].GetWindowTextW(CSDCVoltage0);
+			myDilogObj->m_SaticText[49].GetWindowTextW(CSDCVoltage1);
+			myDilogObj->m_SaticText[54].GetWindowTextW(CPhaseangle);
+			myDilogObj->m_SaticText[55].GetWindowTextW(CPowerFactor);
+			myDilogObj->m_SaticText[57].GetWindowTextW(CKilowatt);
+			myDilogObj->m_SaticText[50].GetWindowTextW(CSTimer);
+			myDilogObj->m_SaticText[56].GetWindowTextW(CSTrip);
 
-		// Sleep for 5 seconds
-		Sleep(myDilogObj->m_intrvealvalue * 1000); // 5 seconds in microseconds
+			const char* charStr = CT2A(CSTimer);
+			std::string stdStr(charStr);
 
+			if (isPhasefalut)
+			{
+				Cphase_fault = "1";
+			}
+			else
+			{
+				Cphase_fault = "0";
+			}
+			if (isOvFault)
+			{
+				COvFault = "1";
+			}
+			else
+			{
+				COvFault = "0";
+			}
+			if (isOCFault)
+			{
+				COCFault = "1";
+			}
+			else
+			{
+				COCFault = "0";
+			}
+			if (istripFault)
+			{
+				CTripFault = "1";
+			}
+			else
+			{
+				CTripFault = "0";
+			}
+			if (isCageDoorFault)
+			{
+				CCageDoorFault = "1";
+			}
+			else
+			{
+				CCageDoorFault = "0";
+			}
+			if (isEarthFault)
+			{
+				CEarthFault = "1";
+			}
+			else
+			{
+				CEarthFault = "0";
+			}
+			if (isHTflag)
+			{
+				CHtFlag = "1";
+			}
+			else
+			{
+				CHtFlag = "0";
+			}
+
+			std::time_t currentTime = std::time(nullptr);
+			std::tm* timeInfo = std::localtime(&currentTime);
+
+			// Format the date and time
+			char dateBuffer[11]; // Buffer for "YYYY-MM-DD\0"
+			std::strftime(dateBuffer, sizeof(dateBuffer), "%Y-%m-%d", timeInfo);
+
+			char timestamp[80];
+			std::strftime(timestamp, sizeof(timestamp), "%H:%M:%S", timeInfo);
+
+			m_CSVFile << "," << dateBuffer << " ," << timestamp << "," << _tstof(CSVoltage0) << "," << _tstof(CSVoltage1) << "," << _tstof(CSIPFreq)
+				<< "," << _tstof(CSOPFreq) << "," << _tstof(CSACCurrent0) << "," << _tstof(CSACCurrent1) << ","
+				<< _tstof(CSACCurrent2) << "," << _tstof(CSDCVoltage0) << "," << _tstof(CSDCVoltage1) << "," << _tstof(CPhaseangle) << "," << _tstof(CPowerFactor) << "," << _tstof(CKilowatt)
+				<< "," << stdStr << "," << _tstof(CSTrip) << "," << _tstof(Cphase_fault) << "," << _tstof(COvFault) << "," << _tstof(COCFault) <<
+				"," << _tstof(CTripFault) << "," << _tstof(CCageDoorFault) << "," << _tstof(CEarthFault) << "," << _tstof(CHtFlag) << std::endl;
+
+			// Sleep for 5 seconds
+			Sleep(myDilogObj->m_intrvealvalue * 1000); // 5 seconds in microseconds
+
+		}
+	}
+	else
+	{
+		m_CSVFile.close();
+		cretlog = 1;
 	}
 	return 0;
 }

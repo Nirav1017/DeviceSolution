@@ -96,8 +96,11 @@ protected:
 	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
 	DECLARE_MESSAGE_MAP()
 private:	
-	void SetColourFormat(CColorStatic& t_obj, COLORREF t_back_color, COLORREF t_text_color);
+	
 	void SetWindowBackGroundColor();
+	void SetDefaultValue();
+
+	std::string generateTimestamp();
 public:
 	comm_tx_db_t comm_tx_db;
 	HANDLE hHandle;
@@ -105,7 +108,7 @@ public:
 	afx_msg LRESULT OnMessageImagePreview(WPARAM wParam, LPARAM lParam);
 	void SetReadData(char* input_data, comm_tx_db_t* pcomm_tx_db);
 	void DisplayValue(uint32_t Value, int dp_postion, float* out_value);
-
+	void SetColourFormat(CColorStatic& t_obj, COLORREF t_back_color, COLORREF t_text_color);
 public:
 	afx_msg void OnBnClickedButtonDeviceConnect();
 	afx_msg void OnBnClickedButtonDisconnectDevice();
